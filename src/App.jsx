@@ -48,25 +48,6 @@ const MqttControl = () => {
         }
     };
 
-    const requestLocationPermission = () => {
-        if (!navigator.geolocation) {
-            setError("Geolocation is not supported by your browser.");
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                setLocation({ latitude, longitude });
-                setLocationAccessGranted(true);
-            },
-            (error) => {
-                setError("Location access denied. Please enable location services.");
-                setLocationAccessGranted(false);
-            }
-        );
-    };
-
     const initializeMqttClient = (mqttPassword) => {
         const mqttClient = mqtt.connect("wss://v77825f7.ala.asia-southeast1.emqxsl.com:8084/mqtt", {
             clientId: `mqtt-client-${Math.random().toString(16).substr(2, 8)}`,
@@ -149,21 +130,21 @@ const MqttControl = () => {
             return;
         }
 
-        if (!locationAccessGranted) {
-            requestLocationPermission();
-            return;
-        }
-        const locationMessage = JSON.stringify({ latitude: location.latitude, longitude: location.longitude });
-
         const message = JSON.stringify({ id: 1, mode: "V", value: vibrationValue });
 
         try {
-            client.publish(TOPIC, message, { qos: 1 });
-            client.publish(LOCATION_TOPIC, locationMessage, { qos: 1, retain: true });
-            console.log("Shock command and location data sent successfully with retain flag.");
+            client.publish(TOPIC, message, { qos: 1 }, (err) => {
+                if (err) {
+                    console.error("Failed to publish vibration command:", err);
+                    setError("Failed to send vibration command: " + err.message);
+                } else {
+                    console.log("Vibration command sent successfully:", message);
+                    setError("");
+                }
+            });
         } catch (err) {
-            console.error("Error publishing messages:", err);
-            setError("Error sending messages: " + err.message);
+            console.error("Error publishing vibration command:", err);
+            setError("Error sending vibration command: " + err.message);
         }
     }, [client, isConnected, vibrationValue]);
 
