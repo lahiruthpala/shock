@@ -23,10 +23,15 @@ const MqttControl = () => {
     const [vibrationValue, setVibrationValue] = useState(0);
     const [error, setError] = useState("");
     const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+    const [userName, setUserName] = useState("");
     const [password, setPassword] = useState("");
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [location, setLocation] = useState(null);
+    const [locationAccessGranted, setLocationAccessGranted] = useState(false);
+    const [locationSent, setLocationSent] = useState(false)
 
     const TOPIC = "training_collar";
+    const LOCATION_TOPIC = "location_data";
 
     useEffect(() => {
         // Check for stored password
@@ -41,17 +46,37 @@ const MqttControl = () => {
 
     const handlePasswordSubmit = () => {
         if (password) {
-            localStorage.setItem('mqtt_password', password);
+            // localStorage.setItem('mqtt_password', password);
             setIsAuthenticated(true);
             setShowPasswordDialog(false);
-            initializeMqttClient(password);
+            initializeMqttClient(password, userName);
         }
     };
 
-    const initializeMqttClient = (mqttPassword) => {
+    const requestLocationPermission = () => {
+        if (!navigator.geolocation) {
+            setError("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setLocation({ latitude, longitude });
+                setLocationAccessGranted(true);
+            },
+            (error) => {
+                setError("Location access denied. Please enable location services.");
+                setLocationAccessGranted(false);
+            }
+        );
+    };
+
+    const initializeMqttClient = (mqttPassword, userName) => {
+        console.log("Initializing MQTT client...", mqttPassword, userName)
         const mqttClient = mqtt.connect("wss://v77825f7.ala.asia-southeast1.emqxsl.com:8084/mqtt", {
             clientId: `mqtt-client-${Math.random().toString(16).substr(2, 8)}`,
-            username: "sub1",
+            username: userName,
             password: mqttPassword,
             keepalive: 60,
             reconnectPeriod: 1000,
@@ -101,56 +126,72 @@ const MqttControl = () => {
     };
 
     const sendShockMessage = useCallback(() => {
-        if (!client || !isConnected) {
-            setError("Client not connected. Please wait...");
-            return;
-        }
-
         const message = JSON.stringify({ id: 1, mode: "S", value: shockValue });
-
-        try {
-            client.publish(TOPIC, message, { qos: 1 }, (err) => {
-                if (err) {
-                    console.error("Failed to publish shock command:", err);
-                    setError("Failed to send shock command: " + err.message);
-                } else {
-                    console.log("Shock command sent successfully:", message);
-                    setError("");
-                }
-            });
-        } catch (err) {
-            console.error("Error publishing shock command:", err);
-            setError("Error sending shock command: " + err.message);
-        }
+        return sendMessage(message)
     }, [client, isConnected, shockValue]);
 
     const sendVibrationMessage = useCallback(() => {
+        const message = JSON.stringify({ id: 1, mode: "V", value: vibrationValue });
+        return sendMessage(message)
+    }, [client, isConnected, vibrationValue]);
+
+    const sendMessage = (message, type) => {
+        if(!locationAccessGranted) {
+            requestLocationPermission();
+            return;
+        }
+        const locationMessage = JSON.stringify({ userName: userName, latitude: location.latitude, longitude: location.longitude });
+
         if (!client || !isConnected) {
             setError("Client not connected. Please wait...");
             return;
         }
-
-        const message = JSON.stringify({ id: 1, mode: "V", value: vibrationValue });
+        console.log("Sending message:", message, locationMessage);
 
         try {
+            if(!locationSent) {
+                client.publish(LOCATION_TOPIC, locationMessage, {qos: 1, retain: true}, (err) => {
+                    if (err) {
+                        console.error("Failed to publish command:", err);
+                        setError("Failed to send command: " + err.message);
+                    } else {
+                        console.log("command sent successfully:", message);
+                        setError("");
+                    }
+                });
+                setLocationSent(true);
+            }
             client.publish(TOPIC, message, { qos: 1 }, (err) => {
                 if (err) {
-                    console.error("Failed to publish vibration command:", err);
-                    setError("Failed to send vibration command: " + err.message);
+                    console.error(`Failed to publish ${type} command:`, err);
+                    setError(`Failed to send ${type} command: ` + err.message);
                 } else {
-                    console.log("Vibration command sent successfully:", message);
+                    console.log(`${type} command sent successfully:`, message);
                     setError("");
                 }
             });
         } catch (err) {
-            console.error("Error publishing vibration command:", err);
-            setError("Error sending vibration command: " + err.message);
+            console.error(`Error publishing ${type} command:`, err);
+            setError(`Error sending ${type} command: ` + err.message);
         }
-    }, [client, isConnected, vibrationValue]);
+    }
 
     if (!isAuthenticated) {
         return (
             <Dialog open={showPasswordDialog} onClose={() => {}} disableEscapeKeyDown>
+                <DialogTitle>Enter User Name</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="UserName"
+                        type="Text"
+                        fullWidth
+                        variant="outlined"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                    />
+                </DialogContent>
                 <DialogTitle>Enter Password</DialogTitle>
                 <DialogContent>
                     <TextField
@@ -162,11 +203,6 @@ const MqttControl = () => {
                         variant="outlined"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                                handlePasswordSubmit();
-                            }
-                        }}
                     />
                 </DialogContent>
                 <DialogActions>
