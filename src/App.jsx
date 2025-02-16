@@ -29,6 +29,7 @@ const MqttControl = () => {
     const [location, setLocation] = useState(null);
     const [locationAccessGranted, setLocationAccessGranted] = useState(false);
     const [locationSent, setLocationSent] = useState(false)
+    const [shockMax, setShockMax] = useState(20);
 
     const TOPIC = "training_collar";
     const LOCATION_TOPIC = "location_data";
@@ -88,6 +89,16 @@ const MqttControl = () => {
             console.log("Connected to MQTT broker");
             setIsConnected(true);
             setError("");
+
+            // Subscribe to a topic where retained values exist
+            const topic = "shockMax";  // Replace with your actual topic
+            mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+                if (err) {
+                    console.error("Subscription error:", err);
+                } else {
+                    console.log(`Subscribed to ${topic}`);
+                }
+            });
         });
 
         mqttClient.on("error", (err) => {
@@ -100,6 +111,16 @@ const MqttControl = () => {
                 localStorage.removeItem('mqtt_password');
                 setIsAuthenticated(false);
                 setShowPasswordDialog(true);
+            }
+        });
+
+        mqttClient.on("message", (topic, message, packet) => {
+            const payload = message.toString();
+            console.log(`Received message: ${payload} on topic: ${topic}`);
+
+            if (packet.retain) {
+                console.log("This message is retained!");
+                setShockMax(payload);  // Update user state with the retained value
             }
         });
 
@@ -127,12 +148,12 @@ const MqttControl = () => {
 
     const sendShockMessage = useCallback(() => {
         const message = JSON.stringify({ id: 1, mode: "S", value: shockValue });
-        return sendMessage(message)
+        return sendMessage(message, "shock")
     }, [client, isConnected, shockValue]);
 
     const sendVibrationMessage = useCallback(() => {
         const message = JSON.stringify({ id: 1, mode: "V", value: vibrationValue });
-        return sendMessage(message)
+        return sendMessage(message, "vibration")
     }, [client, isConnected, vibrationValue]);
 
     const sendMessage = (message, type) => {
@@ -258,7 +279,7 @@ const MqttControl = () => {
                             aria-labelledby="shock-slider"
                             disabled={!isConnected}
                             min={0}
-                            max={20}
+                            max={shockMax}
                             step={1}
                             sx={{ mb: 2 }}
                         />
