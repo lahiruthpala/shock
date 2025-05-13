@@ -175,7 +175,14 @@ const MqttControl = () => {
             requestLocationPermission();
             return;
         }
-        const locationMessage = JSON.stringify({ userName: userName, latitude: location.latitude, longitude: location.longitude });
+        let locationMessage = null;
+        try{
+            if(getLocation){
+                locationMessage = JSON.stringify({ userName: userName, latitude: location.latitude, longitude: location.longitude });
+            }
+        }catch(err){
+            console.error("Failed to location data:", err);
+        }
 
         if (!client || !isConnected) {
             setError("Client not connected. Please wait...");
