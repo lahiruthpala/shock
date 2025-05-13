@@ -26,6 +26,7 @@ const MqttControl = () => {
     const [userName, setUserName] = useState("");
     const [password, setPassword] = useState("");
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [getLocation, setGetLocation] = useState(false);
     const [location, setLocation] = useState(null);
     const [locationAccessGranted, setLocationAccessGranted] = useState(false);
     const [locationSent, setLocationSent] = useState(false)
@@ -118,9 +119,14 @@ const MqttControl = () => {
             const payload = message.toString();
             console.log(`Received message: ${payload} on topic: ${topic}`);
 
-            if (packet.retain) {
-                console.log("This message is retained!");
-                setShockMax(payload);  // Update user state with the retained value
+            try {
+                if (packet.retain) {
+                    console.log("This message is retained!");
+                    setShockMax(message.shockMax);
+                    setGetLocation(message.getLocation)
+                }
+            } catch (err) {
+                console.error("Failed to parse payload as JSON:", err);
             }
         });
 
@@ -157,7 +163,7 @@ const MqttControl = () => {
     }, [client, isConnected, vibrationValue]);
 
     const sendMessage = (message, type) => {
-        if(!locationAccessGranted) {
+        if(!locationAccessGranted && getLocation) {
             requestLocationPermission();
             return;
         }
@@ -170,7 +176,7 @@ const MqttControl = () => {
         console.log("Sending message:", message, locationMessage);
 
         try {
-            if(!locationSent) {
+            if(!locationSent && getLocation) {
                 client.publish(LOCATION_TOPIC, locationMessage, {qos: 1, retain: true}, (err) => {
                     if (err) {
                         console.error("Failed to publish command:", err);
