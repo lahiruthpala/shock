@@ -121,7 +121,7 @@ const MqttControl = () => {
 
             let data;
             try {
-                data = JSON.parse(jsonString);
+                data = JSON.parse(payload);
             } catch (err) {
                 console.error("Failed to parse payload as JSON:", err);
                 return;
