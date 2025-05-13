@@ -92,7 +92,7 @@ const MqttControl = () => {
             setError("");
 
             // Subscribe to a topic where retained values exist
-            const topic = "shockMax";  // Replace with your actual topic
+            const topic = "settings";  // Replace with your actual topic
             mqttClient.subscribe(topic, { qos: 1 }, (err) => {
                 if (err) {
                     console.error("Subscription error:", err);
