@@ -75,7 +75,7 @@ const MqttControl = () => {
 
     const initializeMqttClient = (mqttPassword, userName) => {
         console.log("Initializing MQTT client...", mqttPassword, userName)
-        const mqttClient = mqtt.connect("wss://v77825f7.ala.asia-southeast1.emqxsl.com:8084/mqtt", {
+        const mqttClient = mqtt.connect("wss://lfa12ed4.ala.asia-southeast1.emqxsl.com:8084/mqtt", {
             clientId: `mqtt-client-${Math.random().toString(16).substr(2, 8)}`,
             username: userName,
             password: mqttPassword,
