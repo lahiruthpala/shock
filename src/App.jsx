@@ -119,11 +119,19 @@ const MqttControl = () => {
             const payload = message.toString();
             console.log(`Received message: ${payload} on topic: ${topic}`);
 
+            let data;
+            try {
+                data = JSON.parse(jsonString);
+            } catch (err) {
+                console.error("Failed to parse payload as JSON:", err);
+                return;
+            }
+
             try {
                 if (packet.retain) {
                     console.log("This message is retained!");
-                    setShockMax(message.shockMax);
-                    setGetLocation(message.getLocation)
+                    setShockMax(data.shockMax);
+                    setGetLocation(data.getLocation)
                 }
             } catch (err) {
                 console.error("Failed to parse payload as JSON:", err);
